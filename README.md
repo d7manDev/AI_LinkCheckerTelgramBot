@@ -36,7 +36,7 @@ This project entails the development of a Telegram bot, leveraging the capabilit
 1. **Clone the repository:**
 
    ```bash
-   git clone [repository-url]
+   git clone https://github.com/d7manDev/AI_LinkCheckerTelgramBot
    ```
 
 2. **Install the required dependencies:**
