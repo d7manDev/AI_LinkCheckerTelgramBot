@@ -1,32 +1,31 @@
 import openai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode, ReplyKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackContext, CallbackQueryHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 import datetime
 import validators
 
-# تعيين مفتاح API لـ OpenAI
-openai.api_key = "Your_Openai_Api"  # استبدل بمفتاح API الخاص بك
+# Set the API key for OpenAI
+openai.api_key = "Your_Openai_Api"  # Replace with your API key
 
-# تعيين توكن بوت تليجرام
-TELEGRAM_BOT_TOKEN = "Your_Bot_Token"  # استبدل بتوكن البوت الخاص بك
-# متغير لتخزين معلومات المستخدمين والروابط
+# Set the Telegram bot token
+TELEGRAM_BOT_TOKEN = "Your_Bot_Token"  # Replace with your bot token
+# Variable to store user information and links
 user_data = []
-# المستخدم الذي يعتبر مدير البوت (يجب تعديله وفقاً للمعرف الفعلي للمدير)
+# The user who acts as the bot manager (must be edited according to the actual manager's ID)
 ADMIN_USER_ID = Your_Telgram_User_ID
-# تكوين المستخدم (اختياري)
-# USER_ID = 123456789  # استبدل بمعرف المستخدم الخاص بك
+# User configuration (optional)
+# USER_ID = 123456789  # Replace with your user ID
 control_panel_displayed = False
 
-# دالة بداية الدردشة
+# Start chat function
 def start(update: Update, context: CallbackContext) -> None:
-    # تحقق مما إذا كان المتغير معرفًا مسبقًا، وإلا قم بتعريفه
+    # Check if the variable is defined, otherwise, define it
     if 'connected_users' not in context.bot_data:
         context.bot_data['connected_users'] = 0
 
-    # زيادة عدد المستخدمين المتصلين بواحد
+    # Increase the number of connected users by one
     context.bot_data['connected_users'] += 1
 
-    
     user_info = {
         'user_id': update.message.from_user.id,
         'username': update.message.from_user.username,
@@ -35,77 +34,78 @@ def start(update: Update, context: CallbackContext) -> None:
         'links': []
     }
     user_data.append(user_info)
-    # قائمة الأوامر للقائمة الجانبية
+    # Command list for the side menu
     commands = [
-        ['/stats', '/help'],  # يمكنك إضافة المزيد إذا كنت بحاجة
+        ['/stats', '/help'],  # You can add more if needed
     ]
 
-    # إعداد زرارات القائمة الجانبية
+    # Set up the side menu buttons
     reply_markup = ReplyKeyboardMarkup(commands, one_time_keyboard=True)
 
-    # إذا كان المستخدم هو المدير
+    # If the user is the manager
     if update.message.from_user.id == ADMIN_USER_ID:
-        # رسالة ترحيبية خاصة للمدير
-        welcome_message = f'أهلاً بك، ({update.message.from_user.username})! كمدير للبوت، يمكنك استخدام الأوامر الخاصة بك.'
+        # Special welcome message for the manager
+        welcome_message = f'Welcome, ({update.message.from_user.username})! As the bot manager, you can use your special commands.'
         update.message.reply_text(welcome_message)
     else:
-        # رسالة ترحيب عادية للمستخدم العادي
-        welcome_message = f'أهلاً بك، ({update.message.from_user.username})! قم بإرسال الرابط الذي تريد فحصه.'
+        # Regular welcome message for ordinary users
+        welcome_message = f'Welcome, ({update.message.from_user.username})! Send the link you want to check.'
         update.message.reply_text(welcome_message)
-        # رسالة الترحيب والمطور في نفس الرد وفي سطرين مع تنسيق القائمة
+        # Welcome message and developer info in the same reply and in two lines with list formatting
     welcome_and_developer_message = (
-        f'أهلاً بك، ({update.message.from_user.username})!\n'
-        f'- تم برمجة وتطوير هذا البوت من قبل @D7g_x.'
+        f'Welcome, ({update.message.from_user.username})!\n'
+        f'- This bot was programmed and developed by @D7g_x.'
     )
     update.message.reply_text(welcome_and_developer_message)
-    # إرسال رسالة توجيه للمستخدم
-    guidance_message = 'يمكنك بدء الفحص بإرسال الرابط الذي تريد فحصه.'
+    # Send a guidance message to the user
+    guidance_message = 'You can start the check by sending the link you want to examine.'
     update.message.reply_text(guidance_message)
 
-# دالة فحص الرابط
+# Check URL function
 def check_url(update: Update, context: CallbackContext) -> None:
     global total_links_sent, total_response_time
-    # تحقق من هوية المستخدم (اختياري)
+    # Check user identity (optional)
     user_id = update.message.from_user.id
 
-    # استخراج الرابط من الرسالة
+    # Extract the link from the message
     url = update.message.text
 
-    # التحقق من صحة الرابط باستخدام مكتبة validators
+    # Check the validity of the link using the validators library
     if not validators.url(url):
-        update.message.reply_text('الرجاء إدخال رابط صحيح.')
+        update.message.reply_text('Please enter a valid link.')
         return
-    # إرسال رسالة "جاري الكتابة"
-    typing_message = context.bot.send_message(chat_id=update.effective_chat.id, text='يتم فحص الرابط الآن...')
+    # Send a "typing" message
+    typing_message = context.bot.send_message(chat_id=update.effective_chat.id, text='Checking the link now...')
 
-    # توليد الإجابة من OpenAI
+    # Generate the response from OpenAI
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
             {
                 "role": "user",
-                "content": f"الرجاء النظر في هذا الرابط: {url}. كاستشاري أمان كبير، قم بالنظر في مختلف العوامل المتعلقة بالرابط المعطى. الرد بالشكل التالي. [الجزء أ, الجزء ب]. حيث يمكن أن يكون الجزء أ إما جيد أو سيء فقط، ولا تقدم أي تفسيرات أخرى لهذا الجزء. اختر جيد إذا لم يبدو الرابط كرابط احتيالي، واختر سيء في الحالة الأخرى. أما الجزء ب، فيكون السبب لشرح الجزء أ."
+                "content": f"Please review this link: {url}. As a cybersecurity consultant, consider various factors related to the given link. Respond in the following format. [Part A, Part B]. Where Part A can only be either good or bad, without providing any other explanations for this part. Choose good if the link does not appear to be a phishing link, and choose bad otherwise. As for Part B, it is the reason for explaining Part A."
             }
         ]
     )
-    # حذف رسالة "جاري الكتابة"
+    # Delete the "typing" message
     context.bot.delete_message(chat_id=update.effective_chat.id, message_id=typing_message.message_id)
-    # استخراج النتيجة وإرسالها إلى المستخدم
+    # Extract the result and send it to the user
     result = response['choices'][0]['message']['content']
-    update.message.reply_text(f"تقييم الرابط: {result}")
-    # إرسال رسالة الشكر
-    update.message.reply_text('شكراً لك لاستخدامك بوت التحقق من الروابط بالذكاء الاصطناعي.')
-    # سجل المعلومات في التيرمنال
-    print(f"مستخدم: {user_id}, الرابط: {url}, التقييم: {result}")
+    update.message.reply_text(f"Link assessment: {result}")
+    # Send a thank-you message
+    update.message.reply_text('Thank you for using the AI-powered link verification bot.')
+    # Log information in the terminal
+    print(f"User: {user_id}, Link: {url}, Assessment: {result}")
 
-    # سجل المعلومات في ملف log
+    # Log information in the log file
     with open('log.txt', 'a') as log_file:
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        log_file.write(f"{timestamp} - مستخدم: {user_id}, الرابط: {url}, التقييم: {result}\n")
+        log_file.write(f"{timestamp} - User: {user_id}, Link: {url}, Assessment: {result}\n")
+# Statistics function
 def stats(update: Update, context: CallbackContext) -> None:
-    # تأكيد أن المستخدم هو المدير
+    # Confirm that the user is the manager
     if update.message.from_user.id != ADMIN_USER_ID:
-        update.message.reply_text('لا تمتلك صلاحيات لاستخدام هذا الأمر.')
+        update.message.reply_text('You do not have permissions to use this command.')
         return
 
     total_users = len(user_data)
@@ -113,18 +113,15 @@ def stats(update: Update, context: CallbackContext) -> None:
     average_response_time = calculate_average_response_time(user_data)
 
     stats_message = (
-        f'إحصائيات البوت:\n'
-        f'عدد المستخدمين المتصلين: {total_users}\n'
-        f'إجمالي الروابط المرسلة: {total_links_sent}\n'
-        f'متوسط سرعة الاستجابة: {average_response_time} ثانية'
+        f'Bot Statistics:\n'
+        f'Total connected users: {total_users}\n'
+        f'Total links sent: {total_links_sent}\n'
+        f'Average response time: {average_response_time} seconds'
     )
 
+    # Send the statistics message
     update.message.reply_text(stats_message)
-
-
-    # إرسال رسالة الإحصائيات
-    update.message.reply_text(stats_message)
-    # دالة التعامل مع الأزرار التفاعلية
+    # Function to handle interactive buttons
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
@@ -132,13 +129,13 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     if query.data == 'cancel':
         context.bot.delete_message(chat_id=update.effective_chat.id, message_id=query.message.message_id)
 def calculate_average_response_time(user_data):
-    # استخدام user_data للحصول على أوقات الاستجابة لكل مستخدم
+    # Use user_data to get response times for each user
     response_times = [user.get('response_time', 0) for user in user_data]
 
-    # حساب المتوسط
+    # Calculate the average
     average_time = sum(response_times) / len(response_times) if len(response_times) > 0 else 0
 
-    return round(average_time, 2)  # تقريب القيمة لأقرب رقمين
+    return round(average_time, 2)  # Round the value to the nearest two decimals
 # Function to send a broadcast message to all users
 def send_broadcast_message(update: Update, context: CallbackContext) -> None:
     # Check if the user is the admin
@@ -162,30 +159,30 @@ def send_broadcast_message(update: Update, context: CallbackContext) -> None:
 
     # Notify the admin about the successful broadcast
     update.message.reply_text(f'Broadcast message sent to {len(users)} users successfully.')
-# دالة الإداري
+# Administrative function
 def admin(update: Update, context: CallbackContext) -> None:
-    # إذا كان المستخدم ليس المدير، لا تفعل شيئًا
+    # If the user is not the manager, do nothing
     if update.message.from_user.id != ADMIN_USER_ID:
         return
 
-    # إعداد قائمة الخصائص التي يمكن للمدير القيام بها
+    # Set up the list of actions that the manager can perform
     available_actions = [
-        {'name': 'إدارة المستخدمين', 'callback_data': 'user_management'},
-        {'name': 'إرسال ترويج', 'callback_data': 'send_promotion'},
-        {'name': 'سجل الأمان', 'callback_data': 'security_log'},
+        {'name': 'User Management', 'callback_data': 'user_management'},
+        {'name': 'Send Promotion', 'callback_data': 'send_promotion'},
+        {'name': 'Security Log', 'callback_data': 'security_log'},
     ]
 
-    # إعداد الأزرار باسماء الخصائص
+    # Set up buttons with the names of the actions
     buttons = [InlineKeyboardButton(action['name'], callback_data=action['callback_data']) for action in available_actions]
 
-    # تقسيم الأزرار إلى صفوف
+    # Divide the buttons into rows
     rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 
-    # إعداد اللوحة بناءً على الأزرار المقسمة
+    # Set up the panel based on the divided buttons
     control_markup = InlineKeyboardMarkup(rows)
 
-    # إرسال رسالة بزرارات التحكم
-    update.message.reply_text('اختر إحدى الخيارات:', reply_markup=control_markup)
+    # Send a message with control buttons
+    update.message.reply_text('Choose one of the options:', reply_markup=control_markup)
 def main() -> None:
     updater = Updater(token=TELEGRAM_BOT_TOKEN)
     dispatcher = updater.dispatcher
@@ -205,8 +202,6 @@ def main() -> None:
 
     broadcast_handler = CommandHandler("broadcast", send_broadcast_message)
     dispatcher.add_handler(broadcast_handler)
-
-
 
     updater.start_polling()
     updater.idle()
